@@ -304,6 +304,22 @@ implementation:
         print(f"Val images: {VAL_IMG_DIR}")
         print(f"Val masks: {VAL_MASK_DIR}")
         print(f"Device: {DEVICE}")
+
+        dataset_root = args.dataset_dir
+
+        # Handle zipped root folder (common CDN case)
+        contents = os.listdir(dataset_root)
+        if len(contents) == 1 and os.path.isdir(os.path.join(dataset_root, contents[0])):
+            dataset_root = os.path.join(dataset_root, contents[0])
+        print(contents)
+        TRAIN_IMG_DIR = os.path.join(dataset_root, "train_images")
+        TRAIN_MASK_DIR = os.path.join(dataset_root, "train_masks")
+        VAL_IMG_DIR   = os.path.join(dataset_root, "test_images")
+        VAL_MASK_DIR  = os.path.join(dataset_root, "test_masks")
+        
+        for p in [TRAIN_IMG_DIR, TRAIN_MASK_DIR, VAL_IMG_DIR, VAL_MASK_DIR]:
+            if not os.path.isdir(p):
+                raise RuntimeError(f"Expected dataset directory missing: {p}")
         
         # Transforms
         train_transform = A.Compose(
