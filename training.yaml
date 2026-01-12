@@ -3,30 +3,18 @@ description: Trains UNet model using dataset directory from CDN data loader bric
 inputs:
   - name: dataset_dir
     type: String
-    description: Parent directory containing train_images, train_masks, test_images, test_masks (from CDN loader brick)
   - name: learning_rate
     type: Float
-    description: Learning rate
-    
   - name: batch_size
     type: Integer
-    description: Batch size for training
-    
   - name: num_epochs
     type: Integer
-    description: Number of training epochs
-    
   - name: num_workers
     type: Integer
-    description: Number of data loading workers
-    
   - name: image_height
     type: Integer
-    description: Target image height
-    
   - name: image_width
     type: Integer
-    description: Target image width
     
 outputs:
   - name: model_checkpoint
@@ -79,11 +67,7 @@ implementation:
             
             def __getitem__(self, index):
                 img_path = os.path.join(self.image_dir, self.images[index])
-                mask_path = os.path.join(self.mask_dir, self.images[index].replace(".jpg", "_mask.gif"))
-                
-                # Try alternative mask naming if not found
-                if not os.path.exists(mask_path):
-                    mask_path = os.path.join(self.mask_dir, self.images[index].replace(".jpg", ".png"))
+                mask_path = os.path.join(self.mask_dir, self.images[index].replace(".jpg", ".png"))
                 if not os.path.exists(mask_path):
                     mask_path = os.path.join(self.mask_dir, self.images[index])
                 
@@ -104,7 +88,7 @@ implementation:
             torch.save(state, filename)
         
         def load_checkpoint(checkpoint, model):
-            print("=> Loading checkpoint")
+            print("Loading checkpoint")
             model.load_state_dict(checkpoint["state_dict"])
         
         def get_loaders(
@@ -259,19 +243,16 @@ implementation:
             for batch_idx, (data, targets) in enumerate(loop):
                 data = data.to(device=DEVICE)
                 targets = targets.float().unsqueeze(1).to(device=DEVICE)
-                
-                # forward
+
                 with torch.cuda.amp.autocast():
                     predictions = model(data)
                     loss = loss_fn(predictions, targets)
-                
-                # backward
+
                 optimizer.zero_grad()
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
-                
-                # update tqdm loop
+
                 loop.set_postfix(loss=loss.item())
         
         # ==================== MAIN TRAINING ====================
@@ -364,15 +345,13 @@ implementation:
         print(f"Starting training for {NUM_EPOCHS} epochs...")
         check_accuracy(val_loader, model, device=DEVICE)
         scaler = torch.cuda.amp.GradScaler()
-        
-        # Training metrics
+
         metrics = {
             "epochs": [],
             "val_accuracy": [],
             "val_dice": []
         }
-        
-        # Training loop
+
         for epoch in range(NUM_EPOCHS):
             print(f"Epoch {epoch+1}/{NUM_EPOCHS}")
             train_fn(train_loader, model, optimizer, loss_fn, scaler)
@@ -385,8 +364,7 @@ implementation:
             
             os.makedirs(os.path.dirname(args.model_checkpoint), exist_ok=True)
             save_checkpoint(checkpoint, args.model_checkpoint)
-            
-            # check accuracy
+
             val_acc, val_dice = check_accuracy(val_loader, model, device=DEVICE)
 
             metrics["epochs"].append(epoch + 1)
