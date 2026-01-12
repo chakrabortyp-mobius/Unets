@@ -39,6 +39,13 @@ implementation:
       - -u
       - -c
       - |
+
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install",
+            "albumentations==1.4.7",
+            "torchvision==0.17.2",
+            "numpy<2.0"
+        ])
         import argparse
         import os
         import json
