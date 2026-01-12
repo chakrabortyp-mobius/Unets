@@ -374,7 +374,7 @@ implementation:
         
         # Training loop
         for epoch in range(NUM_EPOCHS):
-            print(f"\\n Epoch {epoch+1}/{NUM_EPOCHS}")
+            print(f"Epoch {epoch+1}/{NUM_EPOCHS}")
             train_fn(train_loader, model, optimizer, loss_fn, scaler)
             
             # save model
@@ -388,13 +388,12 @@ implementation:
             
             # check accuracy
             val_acc, val_dice = check_accuracy(val_loader, model, device=DEVICE)
-            
-            # Save metrics
+
             metrics["epochs"].append(epoch + 1)
             metrics["val_accuracy"].append(val_acc)
             metrics["val_dice"].append(val_dice)
             
-            # print some examples to a folder
+
             os.makedirs(args.saved_images_dir, exist_ok=True)
             save_predictions_as_imgs(
                 val_loader, model, folder=args.saved_images_dir, device=DEVICE
@@ -405,7 +404,7 @@ implementation:
         with open(args.training_metrics, 'w') as f:
             json.dump(metrics, f, indent=2)
         
-        print(f"\\n Training completed!")
+        print(f"Training completed!")
         print(f"Model checkpoint saved: {args.model_checkpoint}")
         print(f"Training metrics saved: {args.training_metrics}")
         print(f"Sample images saved: {args.saved_images_dir}")
