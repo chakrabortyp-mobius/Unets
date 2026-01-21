@@ -46,6 +46,8 @@ implementation:
         import subprocess
         import zipfile
         from pathlib import Path
+        import json
+        from datetime import datetime
         subprocess.check_call([
             sys.executable, "-m", "pip", "install",
             "albumentations==1.4.7",
@@ -374,11 +376,7 @@ implementation:
         check_accuracy(val_loader, model, device=DEVICE)
         scaler = torch.cuda.amp.GradScaler()
 
-        metrics = {
-            "epochs": [],
-            "val_accuracy": [],
-            "val_dice": []
-        }
+        metrics = []
 
         for epoch in range(NUM_EPOCHS):
             print(f"Epoch {epoch+1}/{NUM_EPOCHS}")
@@ -394,11 +392,13 @@ implementation:
             save_checkpoint(checkpoint, args.model_checkpoint)
 
             val_acc, val_dice = check_accuracy(val_loader, model, device=DEVICE)
-
-            metrics["epochs"].append(epoch + 1)
-            metrics["val_accuracy"].append(val_acc)
-            metrics["val_dice"].append(val_dice)
-            
+            current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            x = {
+                "validation_accuracy": val_acc, 
+                "epochs": epoch + 1,
+                "timestamp": current_timestamp
+            }
+            metrics.append(x)
 
             os.makedirs(args.saved_images_dir, exist_ok=True)
             save_predictions_as_imgs(
