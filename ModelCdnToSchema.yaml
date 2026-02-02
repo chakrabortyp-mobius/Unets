@@ -3,8 +3,8 @@ description: Creates entity instances with incremented batch_id and model_cdn re
 inputs:
   - {name: authorizationFile, type: string}  # Path to file containing the token
   - {name: schemaId, type: String}
-  - {name: executionId, type: int}
-  - {name: batchId, type: int}
+  - {name: executionId, type: Integer}
+  - {name: batchId, type: Integer}
   - {name: modelCdnFile, type: String}  # Path to file containing model_cdn
   - {name: domain, type: String}  # Base URL like https://ig.mobiusdtaas.ai
 outputs:
