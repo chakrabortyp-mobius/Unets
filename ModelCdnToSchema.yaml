@@ -2,11 +2,11 @@ name: ModelCdnToSchema
 description: Creates entity instances with incremented batch_id from max batch file and model_cdn replacement
 inputs:
   - {name: authorizationFile, type: string}  # Path to file containing the token
-  - {name: schemaId, type: string}
-  - {name: executionId, type: string}
-  - {name: maxBatchIdFile, type: string}  # Path to file containing max batch_id from previous component
-  - {name: modelCdnFile, type: string}  # Path to file containing model_cdn
-  - {name: domain, type: string}  # Base URL like https://ig.mobiusdtaas.ai
+  - {name: schemaId, type: String}
+  - {name: executionId, type: String}
+  - {name: maxBatchIdFile, type: String}  # Path to file containing max batch_id from previous component
+  - {name: modelCdnFile, type: String}  # Path to file containing model_cdn
+  - {name: domain, type: String}  # Base URL like https://ig.mobiusdtaas.ai
 outputs:
   - {name: response, type: string}
   - {name: statusCode, type: string}
