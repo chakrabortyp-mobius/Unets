@@ -1,4 +1,4 @@
-name: Entity Instance Service
+name: ModelCdnToSchema
 description: Creates entity instances with incremented batch_id and model_cdn replacement
 inputs:
   - {name: authorizationFile, type: string}  # Path to file containing the token
