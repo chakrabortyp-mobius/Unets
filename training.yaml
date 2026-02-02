@@ -6,6 +6,7 @@ inputs:
   - name: pretrained_weights
     type: String
     description: Path to pretrained model checkpoint directory from CDN downloader, or '-1' to train from scratch
+    default: "-1"
   - name: learning_rate
     type: Float
   - name: batch_size
