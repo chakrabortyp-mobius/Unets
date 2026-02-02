@@ -10,6 +10,9 @@ inputs:
 outputs:
   - {name: response, type: string}
   - {name: statusCode, type: string}
+outputs:
+  - {name: response, type: string}
+  - {name: statusCode, type: string}
 implementation:
   container:
     image: python:3.8
@@ -32,8 +35,8 @@ implementation:
         parser = argparse.ArgumentParser()
         parser.add_argument("--authorizationFile", type=str, required=True)
         parser.add_argument("--schemaId", type=str, required=True)
-        parser.add_argument("--executionId", type=int, required=True)
-        parser.add_argument("--batchId", type=int, required=True)
+        parser.add_argument("--executionId", type=str, required=True)
+        parser.add_argument("--batchId", type=str, required=True)
         parser.add_argument("--modelCdnFile", type=str, required=True)
         parser.add_argument("--domain", type=str, required=True)
         parser.add_argument("--response", type=str, required=True)
@@ -41,24 +44,45 @@ implementation:
         
         args = parser.parse_args()
         
+        # Helper function to read from inputPath (handles both file and directory)
+        def read_input_file(path):
+            if os.path.isdir(path):
+                # If it's a directory, look for a file inside
+                files = os.listdir(path)
+                if files:
+                    file_path = os.path.join(path, files[0])
+                    print(f"Reading from directory, found file: {file_path}")
+                    with open(file_path, 'r') as f:
+                        return f.read().strip()
+                else:
+                    raise FileNotFoundError(f"No files found in directory: {path}")
+            else:
+                # If it's a file, read directly
+                with open(path, 'r') as f:
+                    return f.read().strip()
+        
         # Read authorization token from file
         print(f"Reading authorization token from: {args.authorizationFile}")
-        with open(args.authorizationFile, 'r') as f:
-            authorization_token = f.read().strip()
+        authorization_token = read_input_file(args.authorizationFile)
         
         # Read model_cdn from file
         print(f"Reading model_cdn from: {args.modelCdnFile}")
-        with open(args.modelCdnFile, 'r') as f:
-            model_cdn = f.read().strip()
+        model_cdn = read_input_file(args.modelCdnFile)
+        
+        # Convert string arguments to integers
+        execution_id = int(args.executionId)
+        batch_id = int(args.batchId)
         
         # Increment batch_id by 1
-        incremented_batch_id = args.batchId + 1
+        incremented_batch_id = batch_id + 1
         
         # Replace $$ with $$$ in model_cdn
         processed_model_cdn = model_cdn.replace("$$", "$$$")
         
         print(f"Original model_cdn: {model_cdn}")
         print(f"Processed model_cdn: {processed_model_cdn}")
+        print(f"Original batch_id: {batch_id}")
+        print(f"Incremented batch_id: {incremented_batch_id}")
         
         # Construct URL
         url = f"{args.domain}/pi-entity-instances-service/v2.0/schemas/{args.schemaId}/instances"
@@ -73,7 +97,7 @@ implementation:
         payload = {
             "data": [
                 {
-                    "execution_id": args.executionId,
+                    "execution_id": execution_id,
                     "batch_id": incremented_batch_id,
                     "model_cdn": processed_model_cdn
                 }
