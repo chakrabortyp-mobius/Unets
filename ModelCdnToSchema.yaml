@@ -1,12 +1,12 @@
 name: ModelCdnToSchema
-description: Creates entity instances with incremented batch_id and model_cdn replacement
+description: Creates entity instances with incremented batch_id from max batch file and model_cdn replacement
 inputs:
   - {name: authorizationFile, type: string}  # Path to file containing the token
-  - {name: schemaId, type: String}
-  - {name: executionId, type: Integer}
-  - {name: batchId, type: Integer}
-  - {name: modelCdnFile, type: String}  # Path to file containing model_cdn
-  - {name: domain, type: String}  # Base URL like https://ig.mobiusdtaas.ai
+  - {name: schemaId, type: string}
+  - {name: executionId, type: string}
+  - {name: maxBatchIdFile, type: string}  # Path to file containing max batch_id from previous component
+  - {name: modelCdnFile, type: string}  # Path to file containing model_cdn
+  - {name: domain, type: string}  # Base URL like https://ig.mobiusdtaas.ai
 outputs:
   - {name: response, type: string}
   - {name: statusCode, type: string}
@@ -33,7 +33,7 @@ implementation:
         parser.add_argument("--authorizationFile", type=str, required=True)
         parser.add_argument("--schemaId", type=str, required=True)
         parser.add_argument("--executionId", type=str, required=True)
-        parser.add_argument("--batchId", type=str, required=True)
+        parser.add_argument("--maxBatchIdFile", type=str, required=True)
         parser.add_argument("--modelCdnFile", type=str, required=True)
         parser.add_argument("--domain", type=str, required=True)
         parser.add_argument("--response", type=str, required=True)
@@ -62,23 +62,27 @@ implementation:
         print(f"Reading authorization token from: {args.authorizationFile}")
         authorization_token = read_input_file(args.authorizationFile)
         
+        # Read max batch_id from file (output from Fetch Max Batch Model CDN component)
+        print(f"Reading max batch_id from: {args.maxBatchIdFile}")
+        max_batch_id_str = read_input_file(args.maxBatchIdFile)
+        max_batch_id = int(max_batch_id_str)
+        
         # Read model_cdn from file
         print(f"Reading model_cdn from: {args.modelCdnFile}")
         model_cdn = read_input_file(args.modelCdnFile)
         
-        # Convert string arguments to integers
+        # Convert execution_id to integer
         execution_id = int(args.executionId)
-        batch_id = int(args.batchId)
         
         # Increment batch_id by 1
-        incremented_batch_id = batch_id + 1
+        incremented_batch_id = max_batch_id + 1
         
-        # Replace $$ with $$$ in model_cdn
+        # Replace _$$_ with _$$$_ in model_cdn
         processed_model_cdn = model_cdn.replace("_$$_", "_$$$$_")
         
         print(f"Original model_cdn: {model_cdn}")
         print(f"Processed model_cdn: {processed_model_cdn}")
-        print(f"Original batch_id: {batch_id}")
+        print(f"Max batch_id from file: {max_batch_id}")
         print(f"Incremented batch_id: {incremented_batch_id}")
         
         # Construct URL
@@ -125,8 +129,153 @@ implementation:
       - {inputValue: schemaId}
       - --executionId
       - {inputValue: executionId}
-      - --batchId
-      - {inputValue: batchId}
+      - --maxBatchIdFile
+      - {inputPath: maxBatchIdFile}
+      - --modelCdnFile
+      - {inputPath: modelCdnFile}
+      - --domain
+      - {inputValue: domain}
+      - --response
+      - {outputPath: response}
+      - --statusCode
+      - {outputPath: statusCode}
+You, 16 min
+https://cdn-new.gov-cloud.ai/_ENC
+(4+j2JOgE1QQdq6yO427Uztql2TlqlMwKUOg5QJcVQ5XUgB/GP4/J5WLrrqWMDU3q)/MPQE1/391052b6-6b15-4489-b2e7-241921dd6656_$$_V1_data.
+Aditya Manjunath Naik, Now
+name: ModelCdnToSchema
+description: Creates entity instances with incremented batch_id from max batch file and model_cdn replacement
+inputs:
+  - {name: authorizationFile, type: string}  # Path to file containing the token
+  - {name: schemaId, type: string}
+  - {name: executionId, type: string}
+  - {name: maxBatchIdFile, type: string}  # Path to file containing max batch_id from previous component
+  - {name: modelCdnFile, type: string}  # Path to file containing model_cdn
+  - {name: domain, type: string}  # Base URL like https://ig.mobiusdtaas.ai
+outputs:
+  - {name: response, type: string}
+  - {name: statusCode, type: string}
+implementation:
+  container:
+    image: python:3.8
+    command:
+      - sh
+      - -c
+      - |
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet requests || \
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet requests --user
+        exec "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        import requests
+        import json
+        import argparse
+        import os
+        
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--authorizationFile", type=str, required=True)
+        parser.add_argument("--schemaId", type=str, required=True)
+        parser.add_argument("--executionId", type=str, required=True)
+        parser.add_argument("--maxBatchIdFile", type=str, required=True)
+        parser.add_argument("--modelCdnFile", type=str, required=True)
+        parser.add_argument("--domain", type=str, required=True)
+        parser.add_argument("--response", type=str, required=True)
+        parser.add_argument("--statusCode", type=str, required=True)
+        
+        args = parser.parse_args()
+        
+        # Helper function to read from inputPath (handles both file and directory)
+        def read_input_file(path):
+            if os.path.isdir(path):
+                # If it's a directory, look for a file inside
+                files = os.listdir(path)
+                if files:
+                    file_path = os.path.join(path, files[0])
+                    print(f"Reading from directory, found file: {file_path}")
+                    with open(file_path, 'r') as f:
+                        return f.read().strip()
+                else:
+                    raise FileNotFoundError(f"No files found in directory: {path}")
+            else:
+                # If it's a file, read directly
+                with open(path, 'r') as f:
+                    return f.read().strip()
+        
+        # Read authorization token from file
+        print(f"Reading authorization token from: {args.authorizationFile}")
+        authorization_token = read_input_file(args.authorizationFile)
+        
+        # Read max batch_id from file (output from Fetch Max Batch Model CDN component)
+        print(f"Reading max batch_id from: {args.maxBatchIdFile}")
+        max_batch_id_str = read_input_file(args.maxBatchIdFile)
+        max_batch_id = int(max_batch_id_str)
+        
+        # Read model_cdn from file
+        print(f"Reading model_cdn from: {args.modelCdnFile}")
+        model_cdn = read_input_file(args.modelCdnFile)
+        
+        # Convert execution_id to integer
+        execution_id = int(args.executionId)
+        
+        # Increment batch_id by 1
+        incremented_batch_id = max_batch_id + 1
+        
+        # Replace _$$_ with _$$$_ in model_cdn
+        processed_model_cdn = model_cdn.replace("_$$_", "_$$$_")
+        
+        print(f"Original model_cdn: {model_cdn}")
+        print(f"Processed model_cdn: {processed_model_cdn}")
+        print(f"Max batch_id from file: {max_batch_id}")
+        print(f"Incremented batch_id: {incremented_batch_id}")
+        
+        # Construct URL
+        url = f"{args.domain}/pi-entity-instances-service/v2.0/schemas/{args.schemaId}/instances"
+        
+        # Prepare headers
+        headers = {
+            'Authorization': f'Bearer {authorization_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Prepare payload
+        payload = {
+            "data": [
+                {
+                    "execution_id": execution_id,
+                    "batch_id": incremented_batch_id,
+                    "model_cdn": processed_model_cdn
+                }
+            ]
+        }
+        
+        print(f"Sending POST to {url}")
+        print(f"Payload: {json.dumps(payload, indent=2)}")
+        
+        # Make POST request
+        response = requests.post(url, headers=headers, json=payload)
+        
+        print("Status Code:", response.status_code)
+        print("Response:", response.text)
+        
+        # Write outputs
+        def write_output(path, value):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write(str(value))
+        
+        write_output(args.response, response.text)
+        write_output(args.statusCode, str(response.status_code))
+    args:
+      - --authorizationFile
+      - {inputPath: authorizationFile}
+      - --schemaId
+      - {inputValue: schemaId}
+      - --executionId
+      - {inputValue: executionId}
+      - --maxBatchIdFile
+      - {inputPath: maxBatchIdFile}
       - --modelCdnFile
       - {inputPath: modelCdnFile}
       - --domain
