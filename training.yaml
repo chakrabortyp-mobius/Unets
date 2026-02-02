@@ -1,8 +1,11 @@
 name: Train UNet Model
-description: Trains UNet model using dataset directory from CDN data loader brick
+description: Trains UNet model using dataset directory from CDN data loader brick, with optional pretrained weights
 inputs:
   - name: dataset_dir
     type: String
+  - name: pretrained_weights
+    type: String
+    description: Path to pretrained model checkpoint directory from CDN downloader, or '-1' to train from scratch
   - name: learning_rate
     type: Float
   - name: batch_size
@@ -102,7 +105,7 @@ implementation:
             torch.save(state, filename)
         
         def load_checkpoint(checkpoint, model):
-            print("Loading checkpoint")
+            print("=> Loading checkpoint")
             model.load_state_dict(checkpoint["state_dict"])
         
         def get_loaders(
@@ -272,6 +275,7 @@ implementation:
         # ==================== MAIN TRAINING ====================
         parser = argparse.ArgumentParser()
         parser.add_argument('--dataset_dir', type=str, required=True)
+        parser.add_argument('--pretrained_weights', type=str, required=True)
         parser.add_argument('--learning_rate', type=float, default=1e-4)
         parser.add_argument('--batch_size', type=int, default=16)
         parser.add_argument('--num_epochs', type=int, default=3)
@@ -292,7 +296,31 @@ implementation:
         IMAGE_HEIGHT = args.image_height
         IMAGE_WIDTH = args.image_width
         PIN_MEMORY = True
+        
+        # Determine if we should load pretrained weights
         LOAD_MODEL = False
+        PRETRAINED_PATH = None
+        
+        if args.pretrained_weights != "-1":
+            print(f"Pretrained weights path provided: {args.pretrained_weights}")
+            # The CDN downloader outputs a directory, find the .pth.tar file in it
+            if os.path.isdir(args.pretrained_weights):
+                files = os.listdir(args.pretrained_weights)
+                checkpoint_files = [f for f in files if f.endswith('.pth.tar') or f.endswith('.pth')]
+                if checkpoint_files:
+                    PRETRAINED_PATH = os.path.join(args.pretrained_weights, checkpoint_files[0])
+                    LOAD_MODEL = True
+                    print(f"Found checkpoint file: {PRETRAINED_PATH}")
+                else:
+                    print("Warning: No checkpoint file found in pretrained weights directory")
+            elif os.path.isfile(args.pretrained_weights):
+                PRETRAINED_PATH = args.pretrained_weights
+                LOAD_MODEL = True
+                print(f"Using checkpoint file: {PRETRAINED_PATH}")
+            else:
+                print(f"Warning: Pretrained weights path does not exist: {args.pretrained_weights}")
+        else:
+            print("Training from scratch (pretrained_weights = -1)")
         
         # Set up directories from CDN loader brick output
         TRAIN_IMG_DIR = os.path.join(args.dataset_dir, "train_images")
@@ -356,6 +384,16 @@ implementation:
         loss_fn = nn.BCEWithLogitsLoss()
         optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
         
+        # Load pretrained weights if available
+        if LOAD_MODEL and PRETRAINED_PATH:
+            try:
+                checkpoint = torch.load(PRETRAINED_PATH, map_location=DEVICE)
+                load_checkpoint(checkpoint, model)
+                print(f"Successfully loaded pretrained weights from {PRETRAINED_PATH}")
+            except Exception as e:
+                print(f"Warning: Failed to load pretrained weights: {e}")
+                print("Continuing with randomly initialized weights")
+        
         # Get data loaders
         train_loader, val_loader = get_loaders(
             TRAIN_IMG_DIR,
@@ -368,9 +406,6 @@ implementation:
             NUM_WORKERS,
             PIN_MEMORY,
         )
-        
-        if LOAD_MODEL:
-            load_checkpoint(torch.load("my_checkpoint.pth.tar"), model)
         
         print(f"Starting training for {NUM_EPOCHS} epochs...")
         check_accuracy(val_loader, model, device=DEVICE)
@@ -417,6 +452,8 @@ implementation:
     args:
       - --dataset_dir
       - {inputPath: dataset_dir}
+      - --pretrained_weights
+      - {inputPath: pretrained_weights}
       - --learning_rate
       - {inputValue: learning_rate}
       - --batch_size
