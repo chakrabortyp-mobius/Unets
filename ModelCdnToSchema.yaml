@@ -10,9 +10,6 @@ inputs:
 outputs:
   - {name: response, type: string}
   - {name: statusCode, type: string}
-outputs:
-  - {name: response, type: string}
-  - {name: statusCode, type: string}
 implementation:
   container:
     image: python:3.8
@@ -77,7 +74,7 @@ implementation:
         incremented_batch_id = batch_id + 1
         
         # Replace $$ with $$$ in model_cdn
-        processed_model_cdn = model_cdn.replace("_$$_", "_$$$_")
+        processed_model_cdn = model_cdn.replace("_$$_", "_$$$$_")
         
         print(f"Original model_cdn: {model_cdn}")
         print(f"Processed model_cdn: {processed_model_cdn}")
