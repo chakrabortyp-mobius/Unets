@@ -1,0 +1,163 @@
+name: SchemaToModelCdn
+description: Fetches all entity instances by execution_id across all pages, finds the record with max batch_id, and returns its model_cdn
+inputs:
+  - {name: authorizationFile, type: string}  # Path to file containing the token
+  - {name: schemaId, type: string}
+  - {name: executionId, type: string}
+  - {name: domain, type: string}  # Base URL like https://ig.mobiusdtaas.ai
+outputs:
+  - {name: modelCdn, type: String}
+  - {name: maxBatchId, type: String}
+implementation:
+  container:
+    image: python:3.8
+    command:
+      - sh
+      - -c
+      - |
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet requests || \
+        PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet requests --user
+        exec "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        import requests
+        import json
+        import argparse
+        import os
+        
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--authorizationFile", type=str, required=True)
+        parser.add_argument("--schemaId", type=str, required=True)
+        parser.add_argument("--executionId", type=str, required=True)
+        parser.add_argument("--domain", type=str, required=True)
+        parser.add_argument("--modelCdn", type=str, required=True)
+        parser.add_argument("--maxBatchId", type=str, required=True)
+        
+        args = parser.parse_args()
+        
+        # Helper function to read from inputPath (handles both file and directory)
+        def read_input_file(path):
+            if os.path.isdir(path):
+                files = os.listdir(path)
+                if files:
+                    file_path = os.path.join(path, files[0])
+                    print(f"Reading from directory, found file: {file_path}")
+                    with open(file_path, 'r') as f:
+                        return f.read().strip()
+                else:
+                    raise FileNotFoundError(f"No files found in directory: {path}")
+            else:
+                with open(path, 'r') as f:
+                    return f.read().strip()
+        
+        # Read authorization token from file
+        print(f"Reading authorization token from: {args.authorizationFile}")
+        authorization_token = read_input_file(args.authorizationFile)
+        
+        # Convert execution_id to integer
+        execution_id = int(args.executionId)
+        
+        # Prepare headers
+        headers = {
+            'Authorization': f'Bearer {authorization_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Prepare payload
+        payload = {
+            "dbType": "TIDB",
+            "ownedOnly": True,
+            "filter": {
+                "execution_id": execution_id
+            }
+        }
+        
+        # Pagination parameters
+        page = 0
+        size = 1000
+        all_records = []
+        
+        print(f"Fetching all records for execution_id: {execution_id}")
+        
+        # Fetch all pages
+        while True:
+            url = f"{args.domain}/pi-entity-instances-service/v3.0/schemas/{args.schemaId}/instances/list?page={page}&size={size}"
+            
+            print(f"Fetching page {page}...")
+            print(f"URL: {url}")
+            
+            response = requests.post(url, headers=headers, json=payload)
+            
+            print(f"Page {page} - Status Code: {response.status_code}")
+            
+            if response.status_code != 200:
+                print(f"Error on page {page}: {response.text}")
+                break
+            
+            result = response.json()
+            
+            if "content" in result and len(result["content"]) > 0:
+                content = result["content"]
+                all_records.extend(content)
+                print(f"Page {page} - Fetched {len(content)} records")
+                
+                # Check if this is the last page
+                # If the number of records is less than size, we've reached the end
+                if len(content) < size:
+                    print(f"Reached last page (page {page})")
+                    break
+                
+                page += 1
+            else:
+                print(f"No more records on page {page}")
+                break
+        
+        print(f"\nTotal records fetched: {len(all_records)}")
+        
+        # Find the record with max batch_id
+        if len(all_records) > 0:
+            max_record = max(all_records, key=lambda x: x.get("batch_id", 0))
+            
+            max_batch_id = max_record.get("batch_id", 0)
+            model_cdn = max_record.get("model_cdn", "")
+            
+            print(f"\nMax batch_id found: {max_batch_id}")
+            print(f"Corresponding model_cdn: {model_cdn}")
+            
+            # Print all batch_ids for verification
+            batch_ids = [record.get("batch_id", 0) for record in all_records]
+            print(f"All batch_ids: {sorted(batch_ids)}")
+            
+            # Write outputs
+            def write_output(path, value):
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w") as f:
+                    f.write(str(value))
+            
+            write_output(args.modelCdn, model_cdn)
+            write_output(args.maxBatchId, str(max_batch_id))
+        else:
+            print("\nNo records found")
+            # Write empty outputs
+            def write_output(path, value):
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w") as f:
+                    f.write(str(value))
+            
+            write_output(args.modelCdn, "")
+            write_output(args.maxBatchId, "0")
+    args:
+      - --authorizationFile
+      - {inputPath: authorizationFile}
+      - --schemaId
+      - {inputValue: schemaId}
+      - --executionId
+      - {inputValue: executionId}
+      - --domain
+      - {inputValue: domain}
+      - --modelCdn
+      - {outputPath: modelCdn}
+      - --maxBatchId
+      - {outputPath: maxBatchId}
